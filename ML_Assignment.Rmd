@@ -1,0 +1,153 @@
+---
+title: "Machine Learning for Predicting Personal Activity"
+author: "Shumann"
+output: html_document
+--- 
+ 
+## Title - Introduction
+The PML data contains variables that captured various measument regarding personal activity. The goal is to build a model that can predict accurately of the classification of activity (classe) that a subject is performing based on the measurement captureeed. 
+
+The PML train data has 19,622 observations across 159 variables excluding the outcome variable. 
+
+## Executive Summary
+This being a clasification model with a medium large number of variables, the Random Forest model was applied to the rationalized number of predictors (using PCA) to train the model. The confusion Matrix was examined to find the out of sample error.
+
+
+```{r echo=FALSE, eval=FALSE}
+# download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", "pml-training.csv")
+# download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", "pml-testing.csv")
+```
+
+```{r echo=FALSE, eval=TRUE}
+
+library(caret)
+
+```
+
+Clean up the environment 
+
+```{r echo=TRUE}
+
+rm(list=setdiff(ls(), "modrf"))   # the RF model 'modrf' should not be removed once it is built (costly operation)
+
+```
+
+## Data Transformation and variable selection.
+The pml train and test files were read into respective dataframes and analyzed.
+
+
+```{r echo=TRUE}
+
+training <- read.csv("pml-training.csv", stringsAsFactors=F, header=T)
+
+inTrain <- createDataPartition(y=training$classe,p=0.75,  list=FALSE)
+training <- training[inTrain, ]
+testing <- training[-inTrain,]
+
+folds <- createResample(y=training$classe, times=10, list=T)
+sfolds <- sapply(folds, length)
+
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           ## repeated ten times
+                           repeats = 10)
+
+inTrain <- createDataPartition(y=training$classe,p=0.75,  list=FALSE)
+training <- training[inTrain, ]
+testing <- training[-inTrain,]
+
+```
+
+The large number of variables had NA values in them and were removed. This reduced the number of variables from 159 to 92. Then all the factor and character variables were removed as they do not seem to add any value to determine the preedictor. This is because, the nature of experiment is based on accelerometer and gyroscope measurements. 
+
+The above two rediction reduces the number of variable to 56 plus the predictor (classe). 
+
+Process train data.
+```{r echo=TRUE}
+
+x <- training  # stored in x, temporarily for variable rationalization. 
+
+x <-x[sapply(x, function(x) !any(is.na(x)))]  # Columns with NA calues were removed. 
+y <- as.data.frame(x[, 93]) # 'classe' variable is stored separately.
+
+names(y) <- "classe"
+
+y$classe <- as.character(y$classe)
+
+
+x <-x[sapply(x, function(x) !any(is.character(x)))]  # character variables are removed. 
+x <- data.frame(c(x,y)) # class variable is added back to x
+
+training <- x   # training dataset substituted with this new set for further processing. 
+rm(x) # x is removed. 
+rm(y)
+```
+
+Then the training dataset was subjected to Principal Component Analysis(PCA) to find out the predictors those really matter.
+
+```{r echo=TRUE}
+training <- training[, c(4:57)]
+preProc <- preProcess(training[, -54], method="pca", thresh=0.9)
+trainPC <- predict(preProc, training[-54]) 
+
+```
+
+Process validation data
+
+```{r echo=TRUE}
+
+x <- testing  # stored in x, temporarily for variable rationalization. 
+
+x <-x[sapply(x, function(x) !any(is.na(x)))]  # Columns with NA calues were removed. 
+y <- as.data.frame(x[, 93]) # 'classe' variable is stored separately.
+
+names(y) <- "classe"
+
+y$classe <- as.character(y$classe)
+
+
+x <-x[sapply(x, function(x) !any(is.character(x)))]  # character variables are removed. 
+x <- data.frame(c(x,y)) # class variable is added back to x
+
+testing <- x   # training dataset substituted with this new set for further processing. 
+rm(x) # x is removed. 
+rm(y)
+
+```
+
+Process validation data:
+
+```{r echo=TRUE}
+
+testing <- testing[, c(4:57)]
+testPC <- predict(preProc, testing[-54])
+
+```
+
+The random forest model was built next.
+
+```{r echo=TRUE, cache=TRUE}
+
+
+if (!exists("modrf")){
+  # print("model doesnot exists")
+  
+    modrf <- train(training$classe ~ . , data=trainPC, method="rf")
+}
+
+modrf;
+```
+
+The built model ('modrf') was tested with validation data testPC to check its accuracy
+
+```{r echo=TRUE}
+
+confusionMatrix <- confusionMatrix(testing$classe, predict(modrf, testPC));
+
+confusionMatrix
+
+```
+
+The confusion matrix shows that our model is very accurate and generated nil out of sample error.
+
