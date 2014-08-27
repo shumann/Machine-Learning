@@ -1,3 +1,12 @@
+## Note
+To view the html file, follow this link.
+
+http://htmlpreview.github.io/?https://github.com/shumann/Machine-Learning/blob/master/ML_Assignment.html.
+
+The submission file is not alered post deadline.  This is only a link in github for viewing the html compiled file.
+
+You can paste the submitted html link to "http://htmlpreview.github.io/?" to view the html file.  Hope that helps.
+
 Machine-Learning
 ================
 ## Background
